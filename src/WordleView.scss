@@ -1,0 +1,91 @@
+.wordle-box {
+  border-collapse: collapse;
+  margin: 0 auto;
+
+  td {
+    padding: 0;
+  }
+
+  .character {
+    font-family: "Libre Franklin", sans-serif;
+    font-optical-sizing: auto;
+    font-weight: 400;
+    font-style: normal;
+
+    font-size: 1.5em;
+    margin: 2px;
+    padding: 0.25em;
+    width: 1em;
+    height: 1em;
+    line-height: 1em;
+    border: solid 1px var(--tile-border);
+    color: var(--tile-color);
+    text-align: center;
+
+    &--guess {
+      border-color: var(--tile-border--guessed);
+      animation: pop 150ms ease-out;
+    }
+
+    &--correct {
+      background: var(--tile-bg--good);
+      color: var(--tile-color--flipped);
+      border-color: var(--tile-border--flipped);
+    }
+
+    &--near {
+      background: var(--tile-bg--near);
+      color: var(--tile-color--flipped);
+      border-color: var(--tile-border--flipped);
+    }
+
+    &--absent {
+      background: var(--tile-bg--nope);
+      color: var(--tile-color--flipped);
+      border-color: var(--tile-border--flipped);
+    }
+  }
+}
+
+
+.flip-container {
+  perspective: 1000px;
+
+  * {
+    transform-style: preserve-3d;
+  }
+
+  .flipper {
+    transform-style: preserve-3d;
+    transition: transform 750ms;
+    display: grid;
+    // transform: rotateY(90deg);
+
+    .front, .back {
+      backface-visibility: hidden;
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .back {
+      transform: rotateX(180deg);
+    }
+
+    &--flipped {
+      transform: rotateX(180deg);
+    }
+  }
+}
+
+@keyframes pop {
+  0% {
+      transform: scale(1);
+  }
+  50% {
+      transform: scale(1.1);
+  }
+  100% {
+      transform: scale(1);
+  }
+}
+
