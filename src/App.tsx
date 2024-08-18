@@ -4,111 +4,109 @@ import { useEffect, useState } from 'react';
 import { AcceptanceError, GameBoardSnapshot, GameState, WordleGameLogic, WordleGameLogicEvent } from '@this-is-josh-hansen/wordle-game-logic';
 
 import ThemeController from './theme-controller';
-import { handleKeyPress, keyboardEvents } from './use-wordle-keyboard-capture';
+import { useWordleKeyboardEvents } from './use-wordle-keyboard-capture';
 import WordleView from './WordleView';
 import { words } from './words';
+import { useMessaging } from './custom-hooks/use-messaging';
+import { daysSince, debouncedEffect } from './utils';
+
+enum Message {
+  welcome = `Welcome!`,
+  won = 'You won!',
+  lost = `You've lost.`,
+  unknownWord = 'Not in word list',
+  moreLetters = 'Need more letters',
+}
+
+type MessageStyles = 'success' | 'info' | 'error';
 
 function App() {
 
-  const [ logic, setLogic ] = useState<WordleGameLogic>();
+  const [ gameLogic, setGameLogic ] = useState<WordleGameLogic>();
   const [ snapshot, setSnapshot ] = useState<GameBoardSnapshot>([]);
-  // const [ gameState, setGameState ] = useState<GameState>();
-
-  let messageIndex = 0;
-  const [ messages, setMessages ] = useState<{
-    key: number,
-    msg:string,
-    style:string,
-  }[]>([]);
-
-  function addMessage(message:string, style:string='info', duration=0, dismissCallback:()=>void=()=>{}) {
-    const key = ++messageIndex;
-    setMessages(existing => [
-      ...existing,
-      {
-        key,
-        msg: message,
-        style,
-      }
-    ]);
-
-    const removeMessage = () => {
-      setMessages(existing => [...existing].filter(msg => msg.key !== key));
-      dismissCallback();
-    };
-
-    if (duration) {
-      setTimeout(removeMessage, duration*1000);
-    }
-
-    return removeMessage;
-  }
   
-  useEffect(() => {
-    if (!logic) {
-      const answerIndex = Math.round((new Date().getTime() - new Date('2024/08/15').getTime()) / (1000*60*60*24)) % words.length;
-      const answer = words[answerIndex];
-      const newLogic = new WordleGameLogic(answer, words);
-      setLogic(newLogic);
-      setSnapshot(newLogic.board);
+  const [ messages, addMessage ] = useMessaging<MessageStyles, Message>(3000);
+
+  const [ keyboardEvents, cleanupKeyboard ] = useWordleKeyboardEvents();
+  
+  useEffect(debouncedEffect(() => {
+    if (!gameLogic) {
+      (async () => {
+        console.log('Loading new game...');
+        await (async () => new Promise(resolve => setTimeout(resolve, 200)))();
+        console.log('Starting new game!');
+        const answerIndex = daysSince(new Date('2024/08/15')) % words.length;
+        const answer = words[answerIndex];
+        
+        console.groupCollapsed('answer');
+        console.log(answer);
+        console.groupEnd();
+        
+        const newLogic = new WordleGameLogic(answer, words);
+        setSnapshot(newLogic.board);
+        setGameLogic(newLogic);
+      })();
       return;
     }
     
-    const offBoardUpdate = logic.on(WordleGameLogicEvent.boardUpdate, setSnapshot);
-    addMessage('Welcome!', 'info', 3);
+    console.log(`Welcoming the user`);
+    addMessage('info', Message.welcome);
 
-    logic.on(WordleGameLogicEvent.stateUpdate, state => {
-      if (state !== GameState.playing) {
-        offBoardUpdate();
-      }
+    const gameEndCallbacks = [
 
-      // setGameState(state);
+      // stop listening to the keyboard
+      cleanupKeyboard,
 
-      if (state === GameState.won) {
-        addMessage('You Won!', 'success');
-      }
+      // When the game has a new snapshot, pass it on to the GameView
+      gameLogic.on(WordleGameLogicEvent.boardUpdate, setSnapshot),
 
-      if (state === GameState.lost) {
-        addMessage('Out of Guesses. :(', 'warn');
-      }
-    });
-    
-    const offError = logic?.on(WordleGameLogicEvent.error, er => {
-      console.warn(`Game Logic Error`);
-      console.error(er);
+      // When the game has a new state, tell the user
+      gameLogic.on(WordleGameLogicEvent.stateUpdate, state => {
+        if (state !== GameState.playing) {
+          endGame();
+        }
 
-      switch (er) {
-        case AcceptanceError.unknown_word:
-          addMessage('Not in word list', 'error', 2);
-          break;
-        
-        case AcceptanceError.letter_count:
-          if (logic.input === '') {
-            addMessage(`Enter ${logic.answer.length} letters to continue`, 'info', 2);
-          } else {
-            addMessage('Need more letters!', 'error', 2);
-          }
-          break;
-      }
-    });
-    
-    const offChar = keyboardEvents.on('char', (char) => logic.addLetterToInput(char));
-    const offEnter = keyboardEvents.on('enter', () => logic.acceptCurrentInput());
-    const offDelete = keyboardEvents.on('delete', () => logic.removeLetterFromInput());
+        if (state === GameState.won) {
+          addMessage('success', Message.won);
+        }
 
-    window.addEventListener('keydown', handleKeyPress);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyPress);
-
-      offError && offError();
-      offBoardUpdate();
+        if (state === GameState.lost) {
+          addMessage('error', Message.lost);
+        }
+      }),
       
-      offChar();
-      offEnter();
-      offDelete();
-    };
-  }, [logic]);
+      // Handle game errors
+      gameLogic.on(WordleGameLogicEvent.error, er => {
+        console.warn(er);
+
+        switch (er) {
+          case AcceptanceError.unknown_word:
+            addMessage('error', Message.unknownWord);
+            break;
+          
+          case AcceptanceError.letter_count:
+            addMessage('error', Message.moreLetters);
+            break;
+        }
+      }),
+      
+      // Bind keyboard events to the game logic
+      keyboardEvents.current.on('char', (char) => gameLogic.addLetterToInput(char)),
+      keyboardEvents.current.on('enter', () => gameLogic.acceptCurrentInput()),
+      keyboardEvents.current.on('delete', () => gameLogic.removeLetterFromInput()),
+    ];
+    
+    /**
+     * Removes all listeners that were created during game setup
+     */
+    function endGame() {
+      for (const cb of gameEndCallbacks) {
+        cb();
+      }
+    }
+
+    return endGame;
+  }), [gameLogic]);
   
   return <>
     <header>
@@ -117,9 +115,14 @@ function App() {
     </header>
     <main>
       {
-        logic && <>
+        !gameLogic && <>
+          <div className='loading'>loading...</div>
+        </>
+      }
+      {
+        gameLogic && <>
           <div className='messages'>{
-            messages.map(({msg, style, key}) => <div key={`item-${key}`} className={`messages__message messages__message--${style}`}>{ msg }</div>)
+            messages.map(({content, style, key}) => <div key={`item-${key}`} className={`messages__message messages__message--${style}`}>{ content }</div>)
           }</div>
           <WordleView snapshot={snapshot}></WordleView>
         </>
