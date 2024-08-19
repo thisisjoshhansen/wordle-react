@@ -15,6 +15,7 @@
     "lint": "eslint .",
     "preview": "vite preview"
   },
+  "homepage": "https://thisisjoshhansen.github.io/wordle-react",
   "dependencies": {
     "@this-is-josh-hansen/event-emitter": "^1.0.3",
     "@this-is-josh-hansen/wordle-game-logic": "^2.1.0",
