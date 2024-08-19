@@ -1,14 +1,18 @@
 import './App.scss';
 
-import { useEffect, useState } from 'react';
-import { AcceptanceError, GameBoardSnapshot, GameState, WordleGameLogic, WordleGameLogicEvent } from '@this-is-josh-hansen/wordle-game-logic';
+import { useEffect, useMemo, useState } from 'react';
+import { AcceptanceError, GameBoardSnapshot, GameState, TileState, WordleGameLogic, WordleGameLogicEvent } from '@this-is-josh-hansen/wordle-game-logic';
 
 import ThemeController from './theme-controller';
-import { useWordleKeyboardEvents } from './use-wordle-keyboard-capture';
+import { useWordleKeyboardEvents } from './custom-hooks/use-wordle-keyboard-events';
 import WordleView from './WordleView';
 import { words } from './words';
 import { useMessaging } from './custom-hooks/use-messaging';
-import { daysSince, debouncedEffect } from './utils';
+import { daysSince, debouncedEffect, shuffle } from './utils';
+import WordleKeyboard, { KeyboardKeyState } from './components/WordleKeyboard';
+
+// seed-shuffle them, so the answer order is not following along alphabetically
+shuffle(words, 42);
 
 enum Message {
   welcome = `Welcome!`,
@@ -28,6 +32,55 @@ function App() {
   const [ messages, addMessage ] = useMessaging<MessageStyles, Message>(3000);
 
   const [ keyboardEvents, cleanupKeyboard ] = useWordleKeyboardEvents();
+
+  function handleKeyboardClick(key:string) {
+    if (key === 'enter') {
+      gameLogic?.acceptCurrentInput();
+      return;
+    }
+
+    if (key === 'delete') {
+      gameLogic?.removeLetterFromInput();
+      return;
+    }
+
+    gameLogic?.addLetterToInput(key);
+  }
+
+  // const [ keyboardStates, setKeyboardStates ] = useState<Record<string, KeyboardKeyState>>({});
+
+  const keyboardStates = useMemo(() => {
+    const states: Record<string, KeyboardKeyState> = {};
+
+    for (const c of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') {
+      states[c] = KeyboardKeyState.unused;
+    }
+    for (const row of snapshot.filter(row => row.flipped)) {
+      for (const tile of row.tiles) {
+        switch (tile.state) {
+          
+          case TileState.correct:
+            states[tile.letter] = KeyboardKeyState.correct;
+            break;
+          
+          case TileState.near:
+            if (states[tile.letter] !== KeyboardKeyState.correct) {
+              states[tile.letter] = KeyboardKeyState.near;
+            }
+            break;
+          
+          case TileState.absent:
+            if (states[tile.letter] === KeyboardKeyState.unused) {
+              states[tile.letter] = KeyboardKeyState.absent;
+            }
+            break;
+
+        }
+      }
+    }
+
+    return states;
+  }, [snapshot]);
   
   useEffect(debouncedEffect(() => {
     if (!gameLogic) {
@@ -35,9 +88,10 @@ function App() {
         console.log('Loading new game...');
         await (async () => new Promise(resolve => setTimeout(resolve, 200)))();
         console.log('Starting new game!');
-        const answerIndex = daysSince(new Date('2024/08/15')) % words.length;
+        const answerIndex = daysSince(new Date('2024/08/14')) % words.length;
         const answer = words[answerIndex];
         
+        console.log(`Word count: ${words.length.toLocaleString()}`);
         console.groupCollapsed('answer');
         console.log(answer);
         console.groupEnd();
@@ -125,6 +179,7 @@ function App() {
             messages.map(({content, style, key}) => <div key={`item-${key}`} className={`messages__message messages__message--${style}`}>{ content }</div>)
           }</div>
           <WordleView snapshot={snapshot}></WordleView>
+          <WordleKeyboard states={keyboardStates} onKeydown={handleKeyboardClick}></WordleKeyboard>
         </>
       }
     </main>

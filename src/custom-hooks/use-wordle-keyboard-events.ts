@@ -1,6 +1,6 @@
 import { EventEmitter } from "@this-is-josh-hansen/event-emitter";
 import { useEffect, useRef } from "react";
-import { debouncedEffect } from "./utils";
+import { debouncedEffect } from "../utils";
 
 type WordleKeyboardEvents = {
   'delete': [],

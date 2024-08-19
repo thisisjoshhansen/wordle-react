@@ -1,0 +1,54 @@
+:root {
+  --keyboard-bg: #ddd;
+}
+
+.dark-theme {
+  --keyboard-bg: #222;
+}
+
+.keyboard {
+  font-size: 0.75em;
+  max-width: 20em;
+  height: 6em;
+  margin: 1em auto;
+  display: grid;
+  gap: 0.125em;
+  grid-template-columns: repeat(20, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+
+  &__key {
+    font-size: 0.75em;
+    grid-column: auto / span 2;
+    background: var(--keyboard-bg);
+    color: var(--tile-color);
+    border: none;
+    border-radius: 2px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-transform: uppercase;
+
+    &--offset-row {
+      grid-column-start: 2;
+    }
+    
+    &--wide {
+      grid-column: auto / span 3;
+    }
+
+    &--absent {
+      background: var(--tile-bg--nope);
+      color: var(--tile-color--flipped);
+    }
+
+    &--near {
+      background: var(--tile-bg--near);
+      color: var(--tile-color--flipped);
+    }
+
+    &--correct {
+      background: var(--tile-bg--good);
+      color: var(--tile-color--flipped);
+    }
+  }
+}

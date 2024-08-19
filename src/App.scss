@@ -13,7 +13,7 @@ header {
 
 main {
   display: grid;
-  grid-template-rows: 1fr min-content 1fr;
+  grid-template-rows: minmax(1em, 0.5fr) min-content min-content;
   align-items: center;
   padding: $padding;
   gap: 1em;
