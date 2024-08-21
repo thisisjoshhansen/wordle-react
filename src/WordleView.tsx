@@ -1,4 +1,4 @@
-import { GameBoardSnapshot } from "wordle-game-logic";
+import { GameBoardSnapshot } from "@this-is-josh-hansen/wordle-game-logic";
 import "./WordleView.scss";
 
 export default function WordleView({snapshot}:{snapshot:GameBoardSnapshot}) {
